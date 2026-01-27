@@ -57,11 +57,22 @@ jobs:
             type=sha,prefix=dev-
             type=raw,value=dev-latest
       
+      - name: Set build context
+        id: context
+        run: |
+          if [ "${{ matrix.service }}" = "cartservice" ]; then
+            echo "context=./src/cartservice/src" >> $GITHUB_OUTPUT
+            echo "dockerfile=./src/cartservice/src/Dockerfile" >> $GITHUB_OUTPUT
+          else
+            echo "context=./src/${{ matrix.service }}" >> $GITHUB_OUTPUT
+            echo "dockerfile=./src/${{ matrix.service }}/Dockerfile" >> $GITHUB_OUTPUT
+          fi
+      
       - name: Build and push Docker image
         uses: docker/build-push-action@v5
         with:
-          context: ./src/${{ matrix.service }}
-          file: ./src/${{ matrix.service }}/Dockerfile
+          context: ${{ steps.context.outputs.context }}
+          file: ${{ steps.context.outputs.dockerfile }}
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
