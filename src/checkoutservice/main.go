@@ -17,6 +17,7 @@ package main
 import (
 	"context"
 	"fmt"
+	"math/rand"
 	"net"
 	"os"
 	"time"
@@ -61,6 +62,9 @@ func init() {
 		TimestampFormat: time.RFC3339Nano,
 	}
 	log.Out = os.Stdout
+	
+	// Seed random number generator for intermittent failures
+	rand.Seed(time.Now().UnixNano())
 }
 
 type checkoutService struct {
@@ -229,6 +233,12 @@ func (cs *checkoutService) Watch(req *healthpb.HealthCheckRequest, ws healthpb.H
 
 func (cs *checkoutService) PlaceOrder(ctx context.Context, req *pb.PlaceOrderRequest) (*pb.PlaceOrderResponse, error) {
 	log.Infof("[PlaceOrder] user_id=%q user_currency=%q", req.UserId, req.UserCurrency)
+
+	// Introduce intermittent failure for testing/demo purposes (15% failure rate)
+	if rand.Float64() < 0.15 {
+		log.Errorf("[PlaceOrder] SIMULATED FAILURE: Database connection pool exhausted for user_id=%q", req.UserId)
+		panic(fmt.Sprintf("FATAL: Database connection pool exhausted - unable to process order for user %s. Connection timeout after 30s. Active connections: 100/100", req.UserId))
+	}
 
 	orderID, err := uuid.NewUUID()
 	if err != nil {
