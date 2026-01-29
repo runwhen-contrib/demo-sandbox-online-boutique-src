@@ -234,10 +234,12 @@ func (cs *checkoutService) Watch(req *healthpb.HealthCheckRequest, ws healthpb.H
 func (cs *checkoutService) PlaceOrder(ctx context.Context, req *pb.PlaceOrderRequest) (*pb.PlaceOrderResponse, error) {
 	log.Infof("[PlaceOrder] user_id=%q user_currency=%q", req.UserId, req.UserCurrency)
 
-	// Introduce intermittent failure for testing/demo purposes (15% failure rate)
-	if rand.Float64() < 0.15 {
-		log.Errorf("[PlaceOrder] SIMULATED FAILURE: Database connection pool exhausted for user_id=%q", req.UserId)
-		panic(fmt.Sprintf("FATAL: Database connection pool exhausted - unable to process order for user %s. Connection timeout after 30s. Active connections: 100/100", req.UserId))
+	// Introduce intermittent failure for testing/demo purposes (10% failure rate)
+	// DEV: Simple nil pointer dereference to generate clear stacktraces
+	if rand.Float64() < 0.10 {
+		log.Errorf("[PlaceOrder] SIMULATED FAILURE: Unexpected nil value in order processing for user_id=%q", req.UserId)
+		var nilPointer *pb.PlaceOrderRequest
+		_ = nilPointer.UserId // This will panic with nil pointer dereference
 	}
 
 	orderID, err := uuid.NewUUID()
