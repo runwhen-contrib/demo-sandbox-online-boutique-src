@@ -98,11 +98,12 @@ public final class AdService {
         logger.info("received ad request (context_words=" + req.getContextKeysList() + ")");
 
         // Introduce intermittent failure for testing/demo purposes (10% failure rate)
-        // DEV: Simple NullPointerException to generate clear stacktraces
+        // DEV: Throws NullPointerException and terminates the JVM to simulate a fatal crash
         if (Math.random() < 0.10) {
-          logger.error("SIMULATED FAILURE: Unexpected null reference in ad catalog lookup for context_keys=" + req.getContextKeysList());
-          String nullRef = null;
-          nullRef.length();
+          logger.fatal("SIMULATED FAILURE: Unexpected null reference in ad catalog lookup for context_keys=" + req.getContextKeysList());
+          NullPointerException npe = new NullPointerException("Ad catalog reference is null during ad retrieval");
+          logger.fatal("Fatal error in getAds — terminating process", npe);
+          System.exit(1);
         }
 
         if (req.getContextKeysCount() > 0) {
