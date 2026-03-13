@@ -96,6 +96,15 @@ public final class AdService {
       try {
         List<Ad> allAds = new ArrayList<>();
         logger.info("received ad request (context_words=" + req.getContextKeysList() + ")");
+
+        // Introduce intermittent failure for testing/demo purposes (10% failure rate)
+        // DEV: Simple NullPointerException to generate clear stacktraces
+        if (Math.random() < 0.10) {
+          logger.error("SIMULATED FAILURE: Unexpected null reference in ad catalog lookup for context_keys=" + req.getContextKeysList());
+          String nullRef = null;
+          nullRef.length();
+        }
+
         if (req.getContextKeysCount() > 0) {
           for (int i = 0; i < req.getContextKeysCount(); i++) {
             Collection<Ad> ads = service.getAdsByCategory(req.getContextKeys(i));

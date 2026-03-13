@@ -4,38 +4,39 @@ This document describes the intentional failures injected into each branch for t
 
 ## Overview
 
-Each branch contains different types of failures in the `checkoutservice` to demonstrate various error handling and observability scenarios.
+Each branch contains different types of failures to demonstrate various error handling and observability scenarios. The DEV branch injects a crash into `adservice`, while the PROD branch injects a different failure into `checkoutservice`.
 
 ## Branch Details
 
 ### 🔷 DEV Branch
 **Purpose**: Clear stacktrace generation for debugging practice
 
-**Failure Type**: Nil Pointer Dereference  
-**Failure Rate**: 10% of checkout requests  
-**Location**: `src/checkoutservice/main.go` - `PlaceOrder()` function
+**Failure Type**: NullPointerException  
+**Failure Rate**: 10% of ad requests  
+**Service**: `adservice` (Java)  
+**Location**: `src/adservice/src/main/java/hipstershop/AdService.java` - `getAds()` method
 
 **What Happens**:
-```go
-// DEV: Simple nil pointer dereference to generate clear stacktraces
-if rand.Float64() < 0.10 {
-    log.Errorf("[PlaceOrder] SIMULATED FAILURE: Unexpected nil value in order processing for user_id=%q", req.UserId)
-    var nilPointer *pb.PlaceOrderRequest
-    _ = nilPointer.UserId // This will panic with nil pointer dereference
+```java
+// DEV: Simple NullPointerException to generate clear stacktraces
+if (Math.random() < 0.10) {
+    logger.error("SIMULATED FAILURE: Unexpected null reference in ad catalog lookup for context_keys=" + req.getContextKeysList());
+    String nullRef = null;
+    nullRef.length(); // This will throw NullPointerException
 }
 ```
 
 **Error Message**:
-- Log: `SIMULATED FAILURE: Unexpected nil value in order processing`
-- Panic: `runtime error: invalid memory address or nil pointer dereference`
+- Log: `SIMULATED FAILURE: Unexpected null reference in ad catalog lookup`
+- Exception: `java.lang.NullPointerException`
 
 **Use Cases**:
-- ✅ Generates clean, easy-to-read stacktraces
-- ✅ Practice debugging panic scenarios
+- ✅ Generates clean, easy-to-read Java stacktraces
+- ✅ Practice debugging crash scenarios in a different service than prod
 - ✅ Test error monitoring and alerting
-- ✅ Simple failure pattern for learning
+- ✅ Simple failure pattern for learning — distinct from the prod checkoutservice issue
 
-**Image Tag**: `ghcr.io/runwhen-contrib/demo-sandbox-online-boutique-src/checkoutservice:dev`
+**Image Tag**: `ghcr.io/runwhen-contrib/demo-sandbox-online-boutique-src/adservice:dev`
 
 ---
 
@@ -106,65 +107,50 @@ if rand.Float64() < 0.05 {
 
 ### Using with Kubernetes
 
-The `demo-sandbox-online-boutique/deploy/all-in-one.yaml` currently references the `:dev` tag:
+The `demo-sandbox-online-boutique/deploy/all-in-one.yaml` references branch-specific image tags per service. Each branch of the Flux repo pulls the matching tag:
 
-```yaml
-image: ghcr.io/runwhen-contrib/demo-sandbox-online-boutique-src/checkoutservice:dev
-```
-
-To use different branches:
-- **DEV**: `:dev` (nil pointer failures, 10% rate)
-- **PROD**: `:prod` (connection pool exhaustion, 5% rate)
-- **TEST**: `:test` (no failures)
-- **MAIN**: `:latest` (no failures)
-
-### Switching Between Branches
-
-```bash
-# Deploy with dev failures (nil pointer)
-sed -i 's/:prod/:dev/g' deploy/all-in-one.yaml
-kubectl apply -f deploy/all-in-one.yaml
-
-# Deploy with prod failures (connection pool)
-sed -i 's/:dev/:prod/g' deploy/all-in-one.yaml
-kubectl apply -f deploy/all-in-one.yaml
-
-# Deploy without failures
-sed -i 's/:prod/:test/g' deploy/all-in-one.yaml
-kubectl apply -f deploy/all-in-one.yaml
-```
+- **DEV branch**: `adservice:dev` (NullPointerException, 10% rate) — all other services use `:dev` clean images
+- **PROD branch**: `checkoutservice:prod` (connection pool exhaustion, 5% rate)
+- **TEST branch**: all `:test` images (no failures)
+- **MAIN branch**: all `:latest` images (no failures)
 
 ## Observing Failures
 
 Once deployed with the loadgenerator:
 
-1. **Check logs**:
+1. **Check adservice logs (DEV)**:
    ```bash
-   kubectl logs -f deployment/checkoutservice | grep "SIMULATED FAILURE"
+   kubectl logs -f deployment/adservice -n online-boutique-dev | grep "SIMULATED FAILURE"
    ```
 
-2. **Watch for panics**:
+2. **Watch for exceptions (DEV)**:
    ```bash
-   kubectl logs -f deployment/checkoutservice | grep -A 20 "panic"
+   kubectl logs -f deployment/adservice -n online-boutique-dev | grep -A 20 "NullPointerException"
    ```
 
-3. **Monitor error rate**:
-   - DEV: Expect ~10% of checkout requests to fail
-   - PROD: Expect ~5% of checkout requests to fail
+3. **Check checkoutservice logs (PROD)**:
+   ```bash
+   kubectl logs -f deployment/checkoutservice -n online-boutique-prod | grep "SIMULATED FAILURE"
+   ```
 
-4. **Stacktrace visibility**:
-   - DEV: Clear Go stacktraces showing nil pointer dereference
-   - PROD: Stacktraces with database connection context
+4. **Monitor error rate**:
+   - DEV (adservice): Expect ~10% of ad requests to fail
+   - PROD (checkoutservice): Expect ~5% of checkout requests to fail
+
+5. **Stacktrace visibility**:
+   - DEV: Clear Java stacktraces showing NullPointerException in adservice
+   - PROD: Go stacktraces with database connection context in checkoutservice
 
 ## Testing Recommendations
 
 1. **Start with TEST/MAIN** - Verify application works correctly
-2. **Move to DEV** - Learn stacktrace analysis with simple errors
-3. **Graduate to PROD** - Practice realistic production issue debugging
+2. **Move to DEV** - Learn stacktrace analysis with adservice crash (simple error, different service than prod)
+3. **Graduate to PROD** - Practice realistic production issue debugging with checkoutservice
 
 ## Notes
 
-- All failures are triggered during the `PlaceOrder` operation
-- Loadgenerator will automatically trigger these failures during checkout
-- Failures are logged before panicking for better observability
-- Each panic generates a full Go stacktrace for debugging practice
+- DEV failures are triggered during ad retrieval (every page load requests ads)
+- PROD failures are triggered during the `PlaceOrder` checkout operation
+- Loadgenerator drives traffic that triggers both failure types
+- Failures are logged before crashing for better observability
+- DEV uses a different service (adservice) than PROD (checkoutservice) to avoid confusion between scenarios
