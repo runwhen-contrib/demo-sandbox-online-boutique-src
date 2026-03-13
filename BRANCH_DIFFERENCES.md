@@ -18,17 +18,19 @@ Each branch contains different types of failures to demonstrate various error ha
 
 **What Happens**:
 ```java
-// DEV: Simple NullPointerException to generate clear stacktraces
+// DEV: Throws NullPointerException and terminates the JVM to simulate a fatal crash
 if (Math.random() < 0.10) {
-    logger.error("SIMULATED FAILURE: Unexpected null reference in ad catalog lookup for context_keys=" + req.getContextKeysList());
-    String nullRef = null;
-    nullRef.length(); // This will throw NullPointerException
+    logger.fatal("SIMULATED FAILURE: Unexpected null reference in ad catalog lookup for context_keys=" + req.getContextKeysList());
+    NullPointerException npe = new NullPointerException("Ad catalog reference is null during ad retrieval");
+    logger.fatal("Fatal error in getAds — terminating process", npe);
+    System.exit(1);
 }
 ```
 
 **Error Message**:
-- Log: `SIMULATED FAILURE: Unexpected null reference in ad catalog lookup`
-- Exception: `java.lang.NullPointerException`
+- Log: `FATAL - SIMULATED FAILURE: Unexpected null reference in ad catalog lookup`
+- Log: `Fatal error in getAds — terminating process` with `java.lang.NullPointerException` stacktrace
+- JVM terminates with exit code 1
 
 **Use Cases**:
 - ✅ Generates clean, easy-to-read Java stacktraces
